@@ -1,3 +1,4 @@
+from pathlib import Path
 from langchain_openai import OpenAIEmbeddings
 # from langchain_google_vertexai import VertexAIEmbeddings
 from langchain_chroma import Chroma
@@ -5,6 +6,9 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import dynamic_prompt, ModelRequest
 from langchain.chat_models import init_chat_model
 from dotenv import load_dotenv
+
+# Get project root (parent of src/)
+PROJECT_ROOT = Path(__file__).parent.parent
 
 # Load environment variables from .env file
 load_dotenv()
@@ -36,13 +40,15 @@ def main():
     # Alternative (not used due to initialization hanging): embeddings = VertexAIEmbeddings()
     
     # VECTOR DATABASE - Chroma - Load and index documents with persistence
-    with open("documents/video_manager_admin_guide_user.txt", "r", encoding="utf-8") as f:
+    doc_path = PROJECT_ROOT / "documents" / "video_manager_admin_guide_user.txt"
+    with open(doc_path, "r", encoding="utf-8") as f:
         doc_content = f.read()
     
+    persist_dir = str(PROJECT_ROOT / "chroma_langchain_db")
     vector_store = Chroma(
         collection_name="msi_support_docs",
         embedding_function=embeddings,
-        persist_directory="./chroma_langchain_db",  # Persistent storage on disk
+        persist_directory=persist_dir,  # Persistent storage on disk
     )
     
     # Add documents to the vector store (only if collection is empty)

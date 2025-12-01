@@ -102,7 +102,7 @@ This installs all required packages including:
 
 ### Basic Usage
 ```bash
-uv run main.py
+uv run src/main.py
 ```
 
 This will:
@@ -174,7 +174,8 @@ openai.OpenAIError: The api_key client option must be set
 
 ```
 msi_support_assistant/
-├── main.py                 # Main RAG application
+├── src/                    # Source code
+│   └── main.py             # Main RAG application
 ├── pyproject.toml          # Project dependencies
 ├── .env                    # API keys (not in git)
 ├── .env.example            # Template for .env
