@@ -5,10 +5,15 @@ from langchain_chroma import Chroma
 from langchain.agents import create_agent
 from langchain.agents.middleware import dynamic_prompt, ModelRequest
 from langchain.chat_models import init_chat_model
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv
+from utils import setup_logging
 
 # Get project root (parent of src/)
 PROJECT_ROOT = Path(__file__).parent.parent
+
+# Setup logging
+logger = setup_logging(PROJECT_ROOT, keep_recent=10)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -22,25 +27,30 @@ def main():
     - Two-step chain: Always runs search, then generates answer in single LLM call
     - dynamic_prompt middleware: Injects retrieved context into system message
     - Single inference per query: Reduced latency vs. agentic approach
+    - Document chunking: RecursiveCharacterTextSplitter (1000 chars, 200 overlap)
     
     Components:
     - LLM: OpenAI GPT-4o (alternatives: Claude 3.5 Sonnet, Gemini 2.0 Flash)
     - Embeddings: OpenAI text-embedding-3-small
     - Vector DB: Chroma for persistent document retrieval
+    - Text Splitter: RecursiveCharacterTextSplitter for optimal chunk size
     """
     
-    # LLM CONFIGURATION - Using init_chat_model (official pattern)
+    """LLM CONFIGURATION"""
+    # MODEL IN USE:
     model = init_chat_model("gpt-4o", model_provider="openai")
-    # Alternative models:
+    """Alternative Models"""
     # model = init_chat_model("claude-3-5-sonnet-20241022", model_provider="anthropic")
     # model = init_chat_model("gemini-2.0-flash-exp", model_provider="google-vertexai")
 
-    # EMBEDDING MODEL - OpenAI Embeddings (faster than Vertex AI)
+    """EMBEDDING MODEL"""
+    # OpenAI Embeddings (faster than Vertex AI)
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
     # Alternative (not used due to initialization hanging): embeddings = VertexAIEmbeddings()
     
-    # VECTOR DATABASE - Chroma - Load and index documents with persistence
-    doc_path = PROJECT_ROOT / "documents" / "video_manager_admin_guide_user.txt"
+    """VECTOR DATABASE"""
+    # Chroma - Load and index documents with persistence
+    doc_path = PROJECT_ROOT / "documents" / "video_manager_admin_guide.txt"
     with open(doc_path, "r", encoding="utf-8") as f:
         doc_content = f.read()
     
@@ -51,11 +61,24 @@ def main():
         persist_directory=persist_dir,  # Persistent storage on disk
     )
     
+    """VECTOR STORE"""
     # Add documents to the vector store (only if collection is empty)
     if vector_store._collection.count() == 0:
-        vector_store.add_texts(texts=[doc_content])
+        logger.info("Indexing documents with chunking (first run)...")
+        # Split document into chunks for optimal retrieval
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1500,      # ~375 tokens per chunk
+            chunk_overlap=300,    # 20% overlap for context continuity
+            separators=["\n\n", "\n", ". ", " ", ""],  # Hierarchical splitting when possible
+        )
+        # TODO: Look into token-abased splitting, maybe Tiktoken
+        chunks = text_splitter.split_text(doc_content)
+        vector_store.add_texts(texts=chunks)
+        logger.info(f"Indexed {len(chunks)} document chunks")
+    else:
+        logger.info("Using existing vector store")
     
-    # STEP 1: Define dynamic prompt with context injection
+    """STEP 1: Define dynamic prompt with context injection"""
     # This middleware retrieves documents and injects them into the system message
     @dynamic_prompt
     def prompt_with_context(request: ModelRequest) -> str:
@@ -74,10 +97,10 @@ def main():
 
         return system_message
 
-    # STEP 2: Create agent with no tools, just the dynamic prompt middleware
+    """STEP 2: Create agent with no tools, just the dynamic prompt middleware"""
     agent = create_agent(model, tools=[], middleware=[prompt_with_context])
     
-    # STEP 3: Run the RAG chain
+    """STEP 3: Run the RAG chain"""
     query = "How do I add a new user?"
     
     print(f"Question: {query}\n")

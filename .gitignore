@@ -8,6 +8,9 @@ COMMIT.md
 # Vector database (generated locally, too large for git)
 chroma_langchain_db/
 
+# Log files (generated locally during runs)
+logs/
+
 # Environment variables with API keys
 .env
 
