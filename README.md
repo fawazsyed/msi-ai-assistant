@@ -17,7 +17,7 @@ AI-powered Assistant for Motorola Solutions using Model Context Protocol (MCP) a
 
 **Already set up?** Run the application:
 ```bash
-uv run src/main.py
+uv run src/rag_agent.py "[Question regarding documentation]"
 ```
 
 ---
@@ -44,6 +44,7 @@ This project implements a RAG (Retrieval-Augmented Generation) system that:
 - **Framework**: LangChain
 - **Observability**: LangSmith (optional)
 - **RAG Architecture**: Dynamic prompt middleware with similarity search
+- **Web Crawler/Scraper**: Crawl4AI
 
 ---
 

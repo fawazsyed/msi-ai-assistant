@@ -4,7 +4,7 @@ RAG Agent for Python Documentation Assistant.
 This agent orchestrates the query-time workflow:
 1. Takes user question
 2. Searches vector database for relevant docs (semantic search)
-3. Fetches full content from top 2-3 URLs
+3. Fetches full content from top 2 URLs
 4. Synthesizes answer with source citations
 
 Usage:
@@ -45,13 +45,13 @@ class DocumentRetriever:
         )
         print(f"[+] Connected to vector store: {persist_dir}")
     
-    def search(self, query: str, k: int = 3) -> List[Dict[str, Any]]:
+    def search(self, query: str, k: int = 2) -> List[Dict[str, Any]]:
         """
         Search for relevant documents.
         
         Args:
             query: User's question
-            k: Number of results to return (default 3)
+            k: Number of results to return (default 2)
             
         Returns:
             List of documents with metadata (title, url, description, score)
@@ -69,6 +69,7 @@ class DocumentRetriever:
                 "url": doc.metadata["url"],
                 "description": doc.page_content,
                 "snippet": doc.metadata.get("content_snippet", "")[:200],
+                "full_content": doc.metadata.get("full_content", ""),
                 "relevance_score": 1 - score  # Convert distance to similarity
             })
         
@@ -95,9 +96,10 @@ class ContentFetcher:
             url: URL to fetch
             
         Returns:
-            Dict with url, title, and content (markdown)
+            Dict with url, title, and content (cleaned text)
         """
         from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig
+        from bs4 import BeautifulSoup
         
         print(f"[+] Fetching content from: {url}")
         
@@ -112,13 +114,55 @@ class ContentFetcher:
                 result = await crawler.arun(url, config=crawler_config)
                 
                 if result.success:
-                    content_length = len(result.markdown.raw_markdown)
+                    # Clean content - remove noise like we do in crawler
+                    soup = BeautifulSoup(result.html, 'html.parser')
+                    
+                    # Remove common noise elements
+                    for element in soup.find_all(['script', 'style', 'nav', 'header', 'footer']):
+                        element.decompose()
+                    
+                    # Remove cookie banners and privacy notices
+                    for element in soup.find_all(string=lambda text: text and ('cookie' in text.lower() or 'privacy statement' in text.lower())):
+                        if element.parent and len(element) > 100:
+                            element.parent.decompose()
+                    
+                    # If URL has anchor, extract that specific section
+                    section_content = None
+                    if '#' in url:
+                        anchor = url.split('#')[1]
+                        section = soup.find(id=anchor)
+                        
+                        if section:
+                            # Get content from this section
+                            content_parts = [section.get_text(strip=True)]
+                            for sibling in section.find_next_siblings():
+                                if sibling.name in ['h1', 'h2', 'h3', 'h4']:
+                                    break
+                                text = sibling.get_text(strip=True)
+                                if text:
+                                    content_parts.append(text)
+                            
+                            section_content = ' '.join(content_parts)
+                    
+                    # If no section found, extract main content area
+                    if not section_content:
+                        main_content = soup.find(['main', 'article']) or soup.find(class_=lambda c: c and 'content' in c.lower())
+                        
+                        if main_content:
+                            section_content = main_content.get_text(separator=' ', strip=True)
+                        else:
+                            section_content = soup.get_text(separator=' ', strip=True)
+                    
+                    # Final cleanup
+                    section_content = ' '.join(section_content.split())
+                    
+                    content_length = len(section_content)
                     print(f"    [+] Success: {content_length} chars")
                     
                     return {
                         "url": url,
                         "title": result.metadata.get("title", "Unknown"),
-                        "content": result.markdown.raw_markdown[:8000]  # Limit to 8k chars
+                        "content": section_content[:8000]  # Limit to 8k chars
                     }
                 else:
                     print(f"    [X] Failed: {result.error_message}")
@@ -161,7 +205,7 @@ Your job is to answer questions about Python using the provided documentation.
 
 Guidelines:
 - Provide clear, accurate answers based ONLY on the documentation provided
-- Include code examples when relevant
+- Do not make any assumptions or use outside knowledge
 - Cite your sources by mentioning the document title
 - If the documentation doesn't contain the answer, say so honestly
 - Be concise but thorough
@@ -206,21 +250,26 @@ Please provide a comprehensive answer with code examples if applicable.""")
                 "num_sources_retrieved": 0
             }
         
-        # Step 2: Fetch full content from top URLs
-        urls_to_fetch = [doc["url"] for doc in relevant_docs]
-        fetched_content = await self.fetcher.fetch_multiple(urls_to_fetch)
+        # Step 2: Use indexed content directly (avoids re-fetching issues)
+        print(f"\n[+] Using indexed content from {len(relevant_docs)} documents...")
         
-        # Step 3: Build context from fetched content
+        # Step 3: Build context from indexed content
         context_parts = []
-        for i, content_doc in enumerate(fetched_content, 1):
+        for i, doc in enumerate(relevant_docs, 1):
+            # Use the full_content from metadata
+            content = doc.get("full_content", doc.get("snippet", ""))[:8000]  # Limit to 8k chars
+            title = doc.get("title", "Unknown")
+            url = doc.get("url", "")
+            
             context_parts.append(f"""
-Document {i}: {content_doc['title']}
-URL: {content_doc['url']}
+Document {i}: {title}
+URL: {url}
 
-{content_doc['content']}
+{content}
 
 ---
 """)
+            print(f"    [{i}] {title} ({len(content)} chars)")
         
         context = "\n".join(context_parts)
         

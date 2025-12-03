@@ -94,7 +94,8 @@ def build_vector_index(documents: List[Dict], collection_name: str = "motorola_d
                     "title": doc["title"],
                     "url": doc["url"],
                     "source_type": doc["source_type"],
-                    "content_snippet": doc.get("content_snippet", "")[:500]  # First 500 chars
+                    "content_snippet": doc.get("content_snippet", "")[:500],  # First 500 chars
+                    "full_content": doc.get("full_content", "")[:20000]  # Store full content (limit 20k chars)
                 }
             )
         )
@@ -126,15 +127,25 @@ def test_semantic_search(vector_store, test_queries: List[str] = None):
         test_queries: List of test queries (uses defaults if None)
     """
     if test_queries is None:
-        test_queries = [
-            "how to work with JSON files",
-            "parse dates and times",
-            "regular expressions python",
-            "asynchronous programming",
-            "read CSV files",
-            "network requests http",
-            "iterate over collections efficiently",
-        ]
+        # Auto-detect based on document type
+        if any(doc.get('source_type') == 'motorola_docs' for doc in []):
+            test_queries = [
+                "how to manage devices",
+                "firmware update procedures",
+                "password reset",
+                "video playback settings",
+                "initial configuration steps",
+            ]
+        else:
+            test_queries = [
+                "how to work with JSON files",
+                "parse dates and times",
+                "regular expressions python",
+                "asynchronous programming",
+                "read CSV files",
+                "network requests http",
+                "iterate over collections efficiently",
+            ]
     
     print("\n" + "=" * 70)
     print("TESTING SEMANTIC SEARCH")
@@ -202,14 +213,14 @@ def interactive_search(vector_store):
             print(f"   [X] Error: {e}\n")
 
 
-def main():
+def main(filename: str = "prototype_documents.json"):
     """Main indexer pipeline."""
     print("=" * 70)
-    print("MOTOROLA DOCS PROTOTYPE INDEXER")
+    print("DOCUMENT INDEXER")
     print("=" * 70)
     
     # Step 1: Load crawled documents
-    documents = load_crawled_documents()
+    documents = load_crawled_documents(filename)
     
     if not documents:
         return
@@ -255,4 +266,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    filename = sys.argv[1] if len(sys.argv) > 1 else "prototype_documents.json"
+    main(filename)
