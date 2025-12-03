@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from langchain_openai import OpenAIEmbeddings
 # from langchain_google_vertexai import VertexAIEmbeddings
@@ -9,6 +10,9 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv
 from utils import setup_logging
 
+# MCP imports
+from langchain_mcp_adapters.client import MultiServerMCPClient
+
 # Get project root (parent of src/)
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -19,9 +23,9 @@ logger = setup_logging(PROJECT_ROOT, keep_recent=10)
 load_dotenv()
 
 
-def main():
+async def main():
     """
-    MSI Support Assistant - Conversational RAG system using LangChain.
+    MSI AI Assistant - Conversational RAG system using LangChain.
     
     Uses the latest LangChain RAG chain with the following features:
     - Two-step chain: Always runs search, then generates answer in single LLM call
@@ -51,8 +55,15 @@ def main():
     """VECTOR DATABASE"""
     # Chroma - Load and index documents with persistence
     doc_path = PROJECT_ROOT / "documents" / "video_manager_admin_guide.txt"
-    with open(doc_path, "r", encoding="utf-8") as f:
-        doc_content = f.read()
+    try:
+        with open(doc_path, "r", encoding="utf-8") as f:
+            doc_content = f.read()
+    except FileNotFoundError:
+        logger.error(f"Document not found: {doc_path}")
+        raise
+    except Exception:
+        logger.exception(f"Failed to load document from {doc_path}")
+        raise
     
     persist_dir = str(PROJECT_ROOT / "chroma_langchain_db")
     vector_store = Chroma(
@@ -71,7 +82,7 @@ def main():
             chunk_overlap=300,    # 20% overlap for context continuity
             separators=["\n\n", "\n", ". ", " ", ""],  # Hierarchical splitting when possible
         )
-        # TODO: Look into token-abased splitting, maybe Tiktoken
+        # TODO: Look into token-based splitting, maybe Tiktoken
         chunks = text_splitter.split_text(doc_content)
         vector_store.add_texts(texts=chunks)
         logger.info(f"Indexed {len(chunks)} document chunks")
@@ -97,19 +108,66 @@ def main():
 
         return system_message
 
-    """STEP 2: Create agent with no tools, just the dynamic prompt middleware"""
-    agent = create_agent(model, tools=[], middleware=[prompt_with_context])
+    """STEP 2: Load MCP tools from multiple servers"""
+    # Configure MCP client with math (stdio) and weather (HTTP) servers
+    try:
+        client = MultiServerMCPClient(
+            {
+                "math": {
+                    "command": "python",
+                    "args": [str(PROJECT_ROOT / "src" / "mcp_server.py")],
+                    "transport": "stdio",  # Local subprocess communication
+                },
+                "weather": {
+                    "url": "http://localhost:8000/mcp",
+                    "transport": "streamable_http",  # HTTP-based remote server
+                    # Note: Weather server must be running separately on port 8000
+                }
+            }
+        )
+
+        # Get tools from MCP server
+        mcp_tools = await client.get_tools()
+        logger.info(f"Loaded {len(mcp_tools)} MCP tools: {[t.name for t in mcp_tools]}")
+    except (ConnectionError, TimeoutError, OSError):
+        logger.error("Failed to connect to MCP servers. Ensure weather server is running on port 8000.")
+        raise
+    except Exception:
+        logger.exception("Failed to load MCP tools")
+        raise
     
-    """STEP 3: Run the RAG chain"""
-    query = "How do I add a new user?"
+    """STEP 3: Create agent with MCP tools AND dynamic prompt middleware"""
+    agent = create_agent(model, 
+                         tools=mcp_tools, 
+                         middleware=[prompt_with_context])
     
-    print(f"Question: {query}\n")
-    for step in agent.stream(
-        {"messages": [{"role": "user", "content": query}]},
-        stream_mode="values",
-    ):
-        step["messages"][-1].pretty_print()
+    """STEP 4: Run the RAG chain with MCP tools available"""
+    # Test queries: mix of RAG, math tools, and weather tools
+    test_queries = [
+        "How do I add a new user?",  # RAG query - uses vector store
+        "What is 5 + 3?",  # MCP math tool - uses add()
+        "What's the magic number times 10?",  # MCP math tools - uses magic_number() and multiply()
+        "What is the weather in NYC?",  # MCP weather tool - uses get_weather()
+    ]
+    
+    for query in test_queries:
+        print(f"\n{'='*60}")
+        print(f"Question: {query}")
+        print(f"{'='*60}\n")
+        logger.info(f"Processing query: {query}")
+
+        try:
+            async for step in agent.astream(
+                {"messages": [{"role": "user", "content": query}]},
+                stream_mode="values",
+            ):
+                step["messages"][-1].pretty_print()
+
+            logger.info("Query completed")
+        except Exception:
+            logger.exception("Query failed")
+            raise
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
