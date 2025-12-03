@@ -22,15 +22,13 @@ load_dotenv()
 PROJECT_ROOT = Path(__file__).parent.parent
 
 
-def load_crawled_documents(filename: str = "motorola_documents.json") -> List[Dict]:
+def load_crawled_documents(filename: str = "prototype_documents.json") -> List[Dict]:
     """Load documents from JSON file."""
     filepath = PROJECT_ROOT / "data" / filename
     
     if not filepath.exists():
         print(f"[X] File not found: {filepath}")
         print("   Run prototype_crawler.py first to generate documents.")
-        print(f"   Looking for: {filename}")
-        print(f"   Use 'prototype_documents.json' for Python docs (18 pages)")
         return []
     
     with open(filepath, "r", encoding="utf-8") as f:
@@ -57,7 +55,7 @@ def build_vector_index(documents: List[Dict], collection_name: str = "motorola_d
         return None
     
     # Clear existing vector store to prevent duplicates
-    persist_dir = PROJECT_ROOT / "motorola_docs_index_prototype"
+    persist_dir = PROJECT_ROOT / "python_docs_index_prototype"
     if persist_dir.exists():
         print(f"\n[!] Existing vector store found: {persist_dir}")
         print("    Attempting to remove...")

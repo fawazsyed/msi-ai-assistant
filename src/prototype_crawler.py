@@ -22,15 +22,10 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Sample URLs: Motorola documentation pages (active)
+# Sample URLs: Core Python library modules (most commonly used)
 SAMPLE_URLS = [
-    "https://docs.motorolasolutions.com/bundle/89303/page/23111842.html",
-    # Add more Motorola doc URLs here as you discover them
-]
-
-# Python.org URLs (commented out for reference)
-"""
-SAMPLE_URLS = [
+    "https://docs.motorolasolutions.com/bundle/89303/page/23111842.html"
+    """   
     # Core modules
     "https://docs.python.org/3/library/json.html",
     "https://docs.python.org/3/library/pathlib.html",
@@ -62,8 +57,8 @@ SAMPLE_URLS = [
     
     # Utilities
     "https://docs.python.org/3/library/logging.html",
+    """"
 ]
-"""
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -258,11 +253,11 @@ async def generate_descriptions(documents: List[Dict]) -> List[Dict]:
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     
     prompt = ChatPromptTemplate.from_template(
-        """You are analyzing Motorola Solutions technical documentation.
+        """You are analyzing Python standard library documentation.
         Generate a concise 2-3 sentence description that:
-        1. Explains what the document covers (product features, troubleshooting, setup, etc.)
-        2. Lists key topics and use cases
-        3. Uses terminology that technical support staff and users would search for
+        1. Explains what the module/function does
+        2. Lists key use cases and functionality
+        3. Uses terminology developers would search for
         
         Title: {title}
         Content Preview: {content}
@@ -288,7 +283,7 @@ async def generate_descriptions(documents: List[Dict]) -> List[Dict]:
     return documents
 
 
-def save_documents(documents: List[Dict], filename: str = "motorola_documents.json"):
+def save_documents(documents: List[Dict], filename: str = "prototype_documents.json"):
     """Save crawled documents to JSON file."""
     output_path = PROJECT_ROOT / "data" / filename
     output_path.parent.mkdir(exist_ok=True)
@@ -300,7 +295,7 @@ def save_documents(documents: List[Dict], filename: str = "motorola_documents.js
     return output_path
 
 
-def load_documents(filename: str = "motorola_documents.json") -> List[Dict]:
+def load_documents(filename: str = "prototype_documents.json") -> List[Dict]:
     """Load documents from JSON file."""
     filepath = PROJECT_ROOT / "data" / filename
     
