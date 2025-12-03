@@ -103,9 +103,6 @@ Establishes baseline format for future context handlers.
 - Added context_response.json following message format conventions
 - Maintains field ordering per protocol specification
 - References ref-v0.1.0 structure for consistency
-
-Reference Implementation: ref-v0.1.0
-Version: 0.2.0
 ```
 
 ## Checklist

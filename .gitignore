@@ -20,5 +20,6 @@ logs/
 # Research data folder (never stage)
 research/
 
-# Copilot instructions (workspace-specific, keep local)
+# Copilot instructions and tutorial (workspace-specific, keep local)
 .github/copilot-instructions.md
+.github/TUTORIAL.md
