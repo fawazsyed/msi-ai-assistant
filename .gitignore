@@ -13,12 +13,21 @@ chroma_langchain_db/
 
 # Log files (generated locally during runs)
 logs/
+*.log
 
 # Environment variables with API keys
 .env
 
 # Python virtual environment (generated locally)
 .venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Windows null device file
+nul
 
 # Research data folder (never stage)
 research/
