@@ -60,6 +60,16 @@ def get_username():
 async def get_organization_users(
     organization: str
 ) -> Dict[str, Any]:
+    """
+    Description: Retrieves all usernames for a given organization.
+    Use case: Use this tool to retrieve usernames for a given organization (tool
+    will check that the calling user is a member of the organization and has
+    permission to view organization members)
+    Permissable roles: Any roles.
+    Arguments: organization (required, string).
+    Returns: Dict[str, Any] containing users or an error message.
+    """
+
     if not organization:
         return {"error": "Error, no argument given for organization"}
     
@@ -80,7 +90,7 @@ async def get_organization_users(
                 permissions = set(permissions_str[0].split(','))
                 if "view_agency_users" not in permissions:
                         connection.close()
-                        return {"error": "User does not have permission to use this tool"}
+                        return {"error": "User does not have permission to use this tool for the given organization"}
             else:
                 connection.close()
                 return {"error": "User does not have permission to use this tool for the given organization"}
@@ -95,13 +105,22 @@ async def get_organization_users(
     except:
         return {"error": "Error with request"}
             
-        
-
 @mcp.tool()
 async def compare_user_permissions(
     organization: str,
     usernames: List[str]
 ) -> Dict[str, Any]:
+    """
+    Description: Compares the permissions of given usernames in the given organization.
+    Use case: Use this tool to compare permissions of organization users (tool
+    will check that the calling user is a member of the organization and has
+    permission to view organization members)
+    Permissable roles: Any roles.
+    Arguments: organization (required, string), usernames(required, List[str]).
+    Returns: Dict[str, Any] containing shared permission and permissions not shared
+    by all users or an error message.
+    """
+
     if not organization:
         return {"error": "Error, no argument given for organization"} 
     if not usernames:
@@ -121,7 +140,7 @@ async def compare_user_permissions(
                 permissions = set(permissions_str[0].split(','))
                 if "view_agency_users" not in permissions:
                         connection.close()
-                        return {"error": "User does not have permission to use this tool"}
+                        return {"error": "User does not have permission to use this tool for the given organization"}
             else:
                 connection.close()
                 return {"error": "User does not have permission to use this tool for the given organization"}
