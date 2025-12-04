@@ -1,6 +1,6 @@
-# Getting Started with MSI Support Assistant
+# Getting Started with MSI AI Assistant
 
-Complete setup guide for new team members and contributors.
+Setup guide for the agentic RAG system with MCP integration.
 
 ---
 
