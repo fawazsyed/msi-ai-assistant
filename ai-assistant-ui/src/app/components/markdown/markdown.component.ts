@@ -131,7 +131,7 @@ export class MarkdownComponent {
             try {
               return hljs.highlight(code, { language: lang }).value;
             } catch (err) {
-              console.error('Highlight error:', err);
+              // Fallback to auto-detection on error
             }
           }
           return hljs.highlightAuto(code).value;
@@ -142,13 +142,10 @@ export class MarkdownComponent {
     // Use effect to handle async markdown parsing
     effect(() => {
       const contentValue = this.content();
-      console.log('[Markdown] Rendering content:', contentValue);
 
       // marked.parse() returns Promise<string> in v17+
       Promise.resolve(marked.parse(contentValue)).then((html) => {
-        console.log('[Markdown] Parsed HTML:', html);
         const sanitized = this.sanitizer.sanitize(SecurityContext.HTML, html) || '';
-        console.log('[Markdown] Sanitized HTML:', sanitized);
         this.renderedContent.set(sanitized);
       });
     });
