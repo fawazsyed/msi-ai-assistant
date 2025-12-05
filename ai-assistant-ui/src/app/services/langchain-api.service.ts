@@ -9,7 +9,7 @@ import { Message, Conversation } from '../models/message.model';
   providedIn: 'root'
 })
 export class LangchainApiService {
-  private readonly apiUrl = 'http://localhost:8080/api';
+  private readonly apiUrl = 'http://localhost:8000/api';
 
   // State signals
   currentConversation = signal<Conversation | null>(null);
@@ -65,7 +65,6 @@ export class LangchainApiService {
 
     } catch (err) {
       this.error.set(err instanceof Error ? err.message : 'Unknown error');
-      console.error('Error sending message:', err);
     } finally {
       this.isLoading.set(false);
     }
@@ -125,20 +124,16 @@ export class LangchainApiService {
 
             try {
               const chunk = JSON.parse(data);
-              console.log('[LangChain] Received chunk:', chunk);
 
               // Handle different chunk types
               if (chunk.type === 'rag_context' && chunk.ragContext) {
-                console.log('[LangChain] RAG context received');
                 message.ragContext = chunk.ragContext;
               } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-                console.log('[LangChain] Tool call:', chunk.toolCall.name);
                 if (!message.toolCalls) {
                   message.toolCalls = [];
                 }
                 message.toolCalls.push(chunk.toolCall);
               } else if (chunk.type === 'content') {
-                console.log('[LangChain] Content update, length:', chunk.content?.length || 0);
                 // Create a new message object to trigger change detection
                 const updatedMessage = { ...message, content: chunk.content || '' };
                 const messageIndex = conversation.messages.findIndex(m => m.id === message.id);
@@ -148,10 +143,8 @@ export class LangchainApiService {
                   Object.assign(message, updatedMessage);
                 }
               } else if (chunk.type === 'error') {
-                console.error('[LangChain] Error:', chunk.error);
                 this.error.set(chunk.error || 'Unknown error');
               } else if (chunk.type === 'done') {
-                console.log('[LangChain] Stream completed');
                 // Stream completed - set flag to exit outer while loop
                 isDone = true;
                 break;
@@ -161,14 +154,13 @@ export class LangchainApiService {
               this.updateConversation(conversation);
 
             } catch (parseError) {
-              console.error('Error parsing SSE data:', parseError, data);
+              // Parsing error - silently skip malformed data
             }
           }
         }
       }
 
     } catch (err) {
-      console.error('Streaming error:', err);
       message.content = 'Sorry, I encountered an error while processing your request.';
       this.error.set(err instanceof Error ? err.message : 'Streaming failed');
       this.updateConversation(conversation);

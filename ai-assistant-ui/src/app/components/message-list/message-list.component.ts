@@ -185,6 +185,8 @@ import { MessageItemComponent } from '../message-item/message-item.component';
   `]
 })
 export class MessageListComponent {
+  private readonly SCROLL_DELAY_MS = 100;
+
   messages = input.required<Message[]>();
   isLoading = input<boolean>(false);
 
@@ -206,6 +208,6 @@ export class MessageListComponent {
       if (element) {
         element.scrollTop = element.scrollHeight;
       }
-    }, 100);
+    }, this.SCROLL_DELAY_MS);
   }
 }
