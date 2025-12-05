@@ -4,8 +4,8 @@ Mock Identity Provider implementation with JWT formatting
 Installs:
 pip install uvicorn fastapi jwt pydantic rsa
 
-Run (from mcp-prototype/src):
-uvicorn mock_IDP:app --host 127.0.0.1 --port 9400
+Run (from mcp-prototype):
+uvicorn src.mock_idp:app --host 127.0.0.1 --port 9400
 """
 
 import base64
